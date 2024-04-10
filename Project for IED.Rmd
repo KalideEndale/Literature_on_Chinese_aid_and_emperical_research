@@ -1,0 +1,430 @@
+---
+title: "International Economic Development Project"
+author: "Kalide Endale"
+date: '2023-04-03'
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("fuzzyjoin")
+#install.packages("stargazer")
+```
+
+#library required for analysis
+
+```{r}
+
+library(readxl)
+library(tidyverse)
+library(fuzzyjoin)
+library(stringr)
+library(ggplot2)
+
+library(stargazer)
+
+```
+
+#loading all the data into Rstudio
+
+```{r}
+#aid_data - this data contains project level data on Chinese financial outflows
+aid_data = read_excel("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/GlobalChineseDevelopmentFinanceDataset.xlsx")
+
+#electoral democracy index - this will help to control the institutional quality of the countries where Chinese official finance is dispersed via government, SOEs and private investors
+EDI = read.csv("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/electoral-democracy index 2017.csv")
+
+#a list of potential confounders will be controlled for data sourced from the World Bank
+Country_characteristics = read_excel("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/World Bank Indicators data.xlsx")
+
+#a breakdown of DAC ODA sent to African countries. Will be used to see if DAC investment has any significant effect of Chinese official finance outflows
+ODA_DAC = read.csv("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/OECD ODA Givings.csv")
+
+#In times of natural disasters, we expect the rate of flows to increase so it will be important to control for variable
+natural_disasters = read.csv("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/natural-disasters 2020.csv")
+
+#readings suggests that china one policy is a must for Chinese finance. Will be interesting to see if duration of relationship with China means more or less capital inflows
+diplomatic_relations = read_excel("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/Diplomatic Relation Duration.xlsx")
+
+#data collectioo may bias towards english speaking countries/media
+primary_language = read_excel("/Users/Kalide/Documents/Northeastern/International Economic Development/Papers for research/Data/English Speaking.xlsx")
+```
+
+#preview dataset
+
+```{r}
+head(aid_data)
+```
+
+#exclude columns not needed
+
+```{r}
+#removed columns I won't be using in my analysis
+aid_data01 <- aid_data[, -c(1,8,9,10,13,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,57,58,59,60,61,62,63,64,65,69,70)]
+
+#removed rows I don't need
+ODA_DAC01 <- ODA_DAC[-c(2,3,4,61,62,63,64,65,66,67),-c(2)]
+
+#assign the first row as the column names
+colnames(ODA_DAC01) <- unlist(ODA_DAC01[1,])
+ODA_DAC01 <- ODA_DAC01[-1,-c(15:18)]
+colnames(ODA_DAC01)[1] <- "Country"
+ODA_DAC01$Country[7] <- "Cape Verde"
+ODA_DAC01$Country[14] <- "Democratic Republic of Congo"
+ODA_DAC01 <- ODA_DAC01[-c(35,42),]
+
+
+natural_disasters01 <- select(natural_disasters,1,2,10,13,36:39,159:160)
+
+diplomatic_relations$Country[9] <- "Central African Republic"
+diplomatic_relations$Country[13] <- "Democratic Republic of Congo"
+diplomatic_relations$Country[19] <- "Eswatini"
+
+```
+
+
+
+Change the some of the country names to match with other tables
+Cabo Verde, Congo, Dem. Rep., Congo, Rep., Egypt, Arab Rep., Gambia, The
+
+remove switzerland from dataset
+```{r}
+# Replace "Cabo Verde" with "Cape Verde" in the "Country Name" column
+Country_characteristics$`Country Name` <- gsub("Cabo Verde","Cape Verde",Country_characteristics$`Country Name`)
+
+# Replace "Congo, Dem. Rep." with "Democratic Republic of Congo" in the "Country Name" column
+Country_characteristics$`Country Name` <- gsub("Congo, Dem. Rep.","Democratic Republic of Congo",Country_characteristics$`Country Name`)
+
+# Replace "Congo, Rep." with "Congo" in the "Country Name" column
+Country_characteristics$`Country Name` <- gsub("Congo, Rep.","Congo",Country_characteristics$`Country Name`)
+
+# Replace "Egypt, Arab Rep." with "Egypt" in the "Country Name" column
+Country_characteristics$`Country Name` <- gsub("Egypt, Arab Rep.","Egypt",Country_characteristics$`Country Name`)
+
+# Replace "Gambia, The" with "Cape Verde" in the "Country Name" column
+Country_characteristics$`Country Name` <- gsub("Gambia, The","Gambia",Country_characteristics$`Country Name`)
+
+# Remove Switzerland from data set
+Country_characteristics <- Country_characteristics %>%
+  filter(`Country Name` != "Switzerland")
+
+#change colnames
+colnames(Country_characteristics)[3] <- "Country"
+```
+
+
+
+World bank data needs to be separated out will conduct some cleaning to the data set first before separating
+
+Country_characteristics_list <- split(Country_characteristics01, Country_characteristics01$`Series Name`)
+
+#loop through the list of tables and print each one
+
+for(i in seq_along(Country_characteristics_list)) {
+   # Dynamically assign a name to each data frame based on the unique value in col1
+  assign(paste0("Table_", i), Country_characteristics_list[[i]], envir = .GlobalEnv)
+}
+
+```{r}
+
+#remove unnecessary columns and rows
+Country_characteristics01 <- Country_characteristics[-c(973:977), -c(2,4)]
+
+for (i in seq_along(Country_characteristics01)) {
+  colnames(Country_characteristics01)[i] <- gsub(" [YR200[0-9]+]", "", colnames(Country_characteristics01)[i])
+
+}
+
+
+# Transform the dataframe using pivot_longer()
+Country_characteristics02 <- Country_characteristics01 %>%
+  pivot_longer(cols = c("2000","2001","2002","2003","2004","2005",
+                        "2006","2007","2008","2009","2010",
+                        "2011","2012","2013","2014","2015","2016","2017"),
+               names_to = "year",
+               values_to = "value")
+
+Country_characteristics03 <- Country_characteristics02 %>%
+  group_split(`Series Name`)
+
+#toview: Country_characteristics[[i]]
+```
+
+
+scrap
+#change Congo to Republic of the Congo and change Congo(Kinsasha) to Democratic Republic of the Congo and change cabo verde to Cape Verde
+List_of_countries$Country[7] <- "Cape Verde"
+List_of_countries$Country[14] <- "Democratic Republic of Congo"
+
+```{r}
+#create of list of all the countries to cross check in Africa
+List_of_countries <- ODA_DAC01$Country
+List_of_countries = data.frame(List_of_countries)
+
+List_of_countries$continent <- "Africa"
+colnames(List_of_countries)[1] <- "Country"
+
+
+#mutate table to only hold data re natural disasters during and post the year 2000. The other data points are too old and irrelevant for this study
+natural_disasters02 <- natural_disasters01 %>%
+  filter(Year >= 2000)
+
+colnames(natural_disasters02)[1] <- "Country"
+
+
+#merge both the country table (using left join) with the natural disaster table and filter only for countries in Africa
+
+updated_natural.dis <- left_join(List_of_countries,natural_disasters02,by = "Country")
+
+updated_natural.dis01 <- updated_natural.dis %>%
+  filter(continent == "Africa")
+```
+
+#format EDI data for analysis
+```{r}
+#change name of the first column to country
+colnames(EDI)[1] <- "Country"
+
+#filter only for EDI data for years between 2000 and 2017
+EDI01 <- EDI %>%
+  filter(Year >= 2000 & Year <= 2017)
+
+EDI02 <-right_join(EDI01, List_of_countries, by = "Country")
+```
+
+
+
+```{r}
+#create a subset data that shows only project points in Africa
+aid_data_africaonly <- aid_data01 %>%
+  filter(`Recipient Region` == "Africa" & `Recommended For Aggregates` == "Yes")
+
+#remove the Africa regional data point
+aid_data_africaonly <- aid_data_africaonly[-1,]
+
+```
+
+#filter columns for merge with other tables
+```{r}
+#aid_data (reduced to 8)
+aid_data_africaonly01 <- aid_data_africaonly[,-c(1:3,7:9,12,14,16:17,19:24)]
+
+#natural_disasters (reduced to 4)
+disasters <- updated_natural.dis01[,c(1:3,5)]
+
+#EDI02 (reduced to 4)
+democracy_index <- EDI02[,c(1,3:4,7)]
+
+```
+
+
+
+```{r}
+# Transform the dataframe using pivot_longer()
+ODA_DAC02 <- ODA_DAC01 %>%
+  pivot_longer(cols = c("2005","2006","2007","2008","2009","2010",
+                        "2011","2012","2013","2014","2015","2016","2017"),
+               names_to = "year",
+               values_to = "total_ODA")
+
+# Print the transformed dataframe
+print(ODA_DAC02)
+```
+
+create tables for characteristics
+```{r}
+Fuel_exports <- Country_characteristics03[[6]]
+Gdp_percapita <- Country_characteristics03[[10]]
+C02emissions <- Country_characteristics03[[1]]
+Net_ODA_received_percapita <- Country_characteristics03[[13]]
+Ores_n_metal_exports <- Country_characteristics03[[14]]
+Population_total <- Country_characteristics03[[15]]
+```
+
+
+All the data has been formatted and organised, next i need to log large figures to normalise data
+final tables: aid_data_africaonly, diplomatic relations (m), EDI02(m),  natural_disasters02(m), ODA_DAC01(m), primary_language(m), and list of countries(m)
+```{r}
+#lets starts small. we will begin by merging primary languaguge and diplomatic relations
+
+merged_df01 <- left_join(primary_language,diplomatic_relations, by = "Country")
+
+#now lets add merged_df01 to net_ODA
+merged_df02 <- left_join(Net_ODA_received_percapita,merged_df01, by = "Country")
+
+#merge the remaining Characteristic data points (Gdppercaptia)
+merged_df03 <- left_join(merged_df02,Gdp_percapita, by = c("Country","year"))
+
+#continued
+merged_df04 <- left_join(merged_df03,Population_total, by = c("Country","year"))
+
+#continued
+merged_df05 <- left_join(merged_df04,Fuel_exports, by = c("Country", "year"))
+
+#continued
+merged_df06 <- left_join(merged_df05,C02emissions, by = c("Country","year"))
+
+#continued. This is the final merge that combines the WB data to the dummies i created
+merged_df07 <- left_join(merged_df06,Ores_n_metal_exports, by = c("Country","year"))
+
+
+#change colname for disaster table
+colnames(disasters)[3] <- "year"
+
+#change the column type
+merged_df07$year <- as.integer(merged_df07$year)
+
+#continue to merge the tables
+merged_df08 <- left_join(merged_df07,disasters, by = c("Country","year"))
+
+#in this merge X DROPS OUT...I WASN'T ABLE TO FIND
+colnames(EDI02)[3] <- "year"
+
+#merge EDI to our sequential table
+merged_df09 <- left_join(merged_df08,EDI02, by = c("Country","year"))
+
+```
+
+
+```{r}
+colnames(aid_data_africaonly01)[1] <- "Country"
+colnames(aid_data_africaonly01)[3] <- "year"
+
+#final table version
+final_df01 <- full_join(merged_df09,aid_data_africaonly01, by = c("Country","year"))
+
+#the left join preserves more of my data so I'll roll with this for now..I can come back to this another time (x)
+final_df02 <- right_join(merged_df09,aid_data_africaonly01, by = c("Country","year"))
+
+
+# Convert NA values to 0 in (Engling_Speaking , Year of Diplomatic Relationship,Duration of Offical Diplomatic Relations (2017 basis), Recognition of Taiwan, Duration of Relations with Taiwan )
+final_df02$Engling_Speaking[is.na(final_df02$Engling_Speaking)] <- 0
+
+final_df02$`Year of Diplomatic Relationship`[is.na(final_df02$`Year of Diplomatic Relationship`)] <- 0
+
+final_df02$`Duration of Offical Diplomatic Relations (2017 basis)`[is.na(final_df02$`Duration of Offical Diplomatic Relations (2017 basis)`)] <- 0
+
+final_df02$`Recognition of Taiwan`[is.na(final_df02$`Recognition of Taiwan`)] <- 0
+
+final_df02$`Duration of Relations with Taiwan`[is.na(final_df02$`Duration of Relations with Taiwan`)] <- 0
+
+```
+
+
+combining the data is now complete the next step is to clean the dataset one more time prior to analysis
+```{r}
+#update colnames
+colnames(final_df02)[4] <- "Net_ODA_received_percapita (current US$)"
+colnames(final_df02)[14] <- "GDP_percapita(current US$)"
+colnames(final_df02)[16] <- "Population"
+colnames(final_df02)[18] <- "Fuel_exports(% of merchandise exports)"
+colnames(final_df02)[20] <- "O2_emissions(metric tons per capita)"
+colnames(final_df02)[22] <- "Ores_and_metals_exports(% of merchandise exports)"
+
+#remove uncessary columns
+final_df03 <- final_df02[,-c(1,5,13,15,17,19,21,23,25,27,28,29)]
+
+```
+
+
+```{r}
+#add FDI
+FDI <- Country_characteristics03[[4]]
+colnames(FDI)[4] <- "Foreign_direct_investment_net inflows(% of GDP)"
+FDI <- FDI[,-1]
+
+FDI$year <- as.numeric(FDI$year)
+
+#add FDI to the final table
+final_df04 <- left_join(final_df03,FDI, by = c("Country","year"))
+
+#final formatting edits
+colnames(final_df04)[4] <- "English_Speaking"
+final_df04$Population <- as.integer(final_df04$Population)
+
+final_df04$`Net_ODA_received_percapita (current US$)` <- as.numeric(final_df04$`Net_ODA_received_percapita (current US$)`) 
+
+final_df04$`Date Relations Established` <- as.integer(final_df04$`Date Relations Established`)
+
+final_df04$`Date Relations Severed` <- as.integer(final_df04$`Date Relations Severed`)
+
+final_df04$`GDP_percapita(current US$)` <- as.numeric(final_df04$`GDP_percapita(current US$)`)
+
+final_df04$`Fuel_exports(% of merchandise exports)` <- as.numeric(final_df04$`Fuel_exports(% of merchandise exports)`)
+
+final_df04$`O2_emissions(metric tons per capita)` <- as.numeric(final_df04$`O2_emissions(metric tons per capita)`)
+
+final_df04$`Ores_and_metals_exports(% of merchandise exports)` <- as.numeric(final_df04$`Ores_and_metals_exports(% of merchandise exports)`)
+
+final_df04$`Foreign_direct_investment_net inflows(% of GDP)` <- as.numeric(final_df04$`Foreign_direct_investment_net inflows(% of GDP)`)
+
+```
+
+
+
+
++ geom_bar() + geom_smooth(method = "lm", se=FALSE)+ theme_classic() + guides(color= guide_none())
+```{r}
+
+ggplot(data = final_df04) + geom_bar(x=`year`,y=`Flow Class`)
+```
+
+
+#regression model #1
+```{r}
+
+lm01 <- lm(log10(final_df04$`Amount (Constant USD2017)`) ~ final_df04$`Recognition of Taiwan` +
+              final_df04$`Duration of Offical Diplomatic Relations (2017 basis)` + final_df04$electdem_vdem_owid + log10(final_df04$Population) +
+              final_df04$`GDP_percapita(current US$)` + final_df04$`Foreign_direct_investment_net inflows(% of GDP)` +
+              final_df04$`Net_ODA_received_percapita (current US$)` + final_df04$`O2_emissions(metric tons per capita)` +
+              final_df04$`Fuel_exports(% of merchandise exports)` + final_df04$`Ores_and_metals_exports(% of merchandise exports)` +
+              final_df04$English_Speaking + final_df04$Number.of.people.affected.by.drought.per.100.000, data = final_df04)
+```
+
+
+
+```{r}
+lm01 <- lm(log10(`Amount (Constant USD2017)`) ~ `Recognition of Taiwan` +
+            `Duration of Offical Diplomatic Relations (2017 basis)` + electdem_vdem_owid +
+             log10(Population) + `GDP_percapita(current US$)` +
+             `Foreign_direct_investment_net inflows(% of GDP)` +
+             `Net_ODA_received_percapita (current US$)` +
+             `O2_emissions(metric tons per capita)` +
+             `Fuel_exports(% of merchandise exports)` +
+             `Ores_and_metals_exports(% of merchandise exports)` +
+             English_Speaking +
+             Number.of.people.affected.by.drought.per.100.000, data = final_df04)
+```
+
+
+#regression model #2
+```{r}
+lm02 <- lm(log10(`Amount (Constant USD2017)`) ~ Country + `Flow Class` +
+             Intent + year + `Recognition of Taiwan` +
+             `Duration of Offical Diplomatic Relations (2017 basis)` +
+             electdem_vdem_owid + log10(Population) +
+             `GDP_percapita(current US$)` +
+             `Foreign_direct_investment_net inflows(% of GDP)` +
+             `Net_ODA_received_percapita (current US$)` +
+             `O2_emissions(metric tons per capita)` +
+             `Fuel_exports(% of merchandise exports)` +
+             `Ores_and_metals_exports(% of merchandise exports)` +
+             English_Speaking +
+             Number.of.people.affected.by.drought.per.100.000, data = final_df04)
+```
+
+
+place regression into nice tables
+```{r}
+star01 <- stargazer(lm01, type = "html", out = "lm01.html")
+```
+
+```{r}
+stargazer(lm02, type = "html", out = "lm02.html")
+```
+
