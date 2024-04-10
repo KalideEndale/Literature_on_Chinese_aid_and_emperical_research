@@ -1,5 +1,7 @@
 # Literature_on_Chinese_aid_and_emperical_research
 Understanding determinants of Chinese aid and other forms of state financing
+![image](https://github.com/KalideEndale/Literature_on_Chinese_aid_and_emperical_research/assets/58799484/89fa8973-2105-4266-82fa-d2a593dd4b30)
+
 
 Topic: Is Chinese aid primarily channeled towards nations that have poor governance, significant poverty levels, or those that maintain strong diplomatic relations with China? 
 
